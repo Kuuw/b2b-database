@@ -1,144 +1,204 @@
--- =========================================
--- 1) Countries
--- =========================================
+SET ANSI_NULLS ON;
+SET QUOTED_IDENTIFIER ON;
+
+CREATE TABLE Statuses (
+    StatusId UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
+    StatusName NVARCHAR(127) NOT NULL UNIQUE,
+    Description NVARCHAR(255) NULL,
+    CreatedAt DATETIME DEFAULT GETDATE() NOT NULL,
+    UpdatedAt DATETIME DEFAULT GETDATE() NOT NULL
+);
+
 CREATE TABLE Countries (
-    CountryID       UNIQUEIDENTIFIER NOT NULL DEFAULT NEWID(),
-    CountryName     VARCHAR(100)     NOT NULL,
-    CountryCode     VARCHAR(10)      NOT NULL,
-    CONSTRAINT PK_Countries PRIMARY KEY (CountryID),
-    CONSTRAINT UQ_Countries_CountryCode UNIQUE (CountryCode)
+    CountryId UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
+    CountryName NVARCHAR(50) NOT NULL UNIQUE,
+    PhoneCode INT NOT NULL,
+    CreatedAt DATETIME DEFAULT GETDATE() NOT NULL,
+    UpdatedAt DATETIME DEFAULT GETDATE() NOT NULL
 );
-GO
 
--- =========================================
--- 2) AddressTypes
--- =========================================
 CREATE TABLE AddressTypes (
-    AddressTypeID   UNIQUEIDENTIFIER NOT NULL DEFAULT NEWID(),
-    TypeName        VARCHAR(50)      NOT NULL,
-    CONSTRAINT PK_AddressTypes PRIMARY KEY (AddressTypeID),
-    CONSTRAINT UQ_AddressTypes_TypeName UNIQUE (TypeName)
+    AddressTypeId UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
+    TypeName NVARCHAR(50) NOT NULL UNIQUE,
+    Description NVARCHAR(255) NULL,
+    CreatedAt DATETIME DEFAULT GETDATE() NOT NULL,
+    UpdatedAt DATETIME DEFAULT GETDATE() NOT NULL
 );
-GO
 
--- =========================================
--- 3) LogTypes
--- =========================================
-CREATE TABLE LogTypes (
-    LogTypeID       UNIQUEIDENTIFIER NOT NULL DEFAULT NEWID(),
-    LogTypeName     VARCHAR(50)      NOT NULL,
-    CONSTRAINT PK_LogTypes PRIMARY KEY (LogTypeID),
-    CONSTRAINT UQ_LogTypes_LogTypeName UNIQUE (LogTypeName)
+CREATE TABLE Addresses (
+    AddressId UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
+    CompanyId UNIQUEIDENTIFIER NULL,
+    UserId UNIQUEIDENTIFIER NULL,
+    AddressTypeId UNIQUEIDENTIFIER NOT NULL,
+    StreetAddress NVARCHAR(255) NOT NULL,
+    City NVARCHAR(127) NOT NULL,
+    State NVARCHAR(127) NOT NULL,
+    PostalCode NVARCHAR(20) NOT NULL,
+    CountryId UNIQUEIDENTIFIER NOT NULL,
+    PhoneNumber NVARCHAR(20) NULL,
+    IsDefault BIT NOT NULL DEFAULT 0,
+    CreatedAt DATETIME DEFAULT GETDATE() NOT NULL,
+    UpdatedAt DATETIME DEFAULT GETDATE() NOT NULL,
+
+    CONSTRAINT FK_Addresses_Country FOREIGN KEY (CountryId) REFERENCES Countries(CountryId),
+    CONSTRAINT FK_Addresses_AddressType FOREIGN KEY (AddressTypeId) REFERENCES AddressTypes(AddressTypeId)
 );
-GO
 
--- =========================================
--- 4) DiscountTypes
--- =========================================
+CREATE TABLE Companies (
+    CompanyId UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
+    CompanyName NVARCHAR(127) NOT NULL,
+    TaxNumber NVARCHAR(127) UNIQUE NOT NULL,
+    AddressId UNIQUEIDENTIFIER NOT NULL,
+    Email NVARCHAR(127) UNIQUE NOT NULL,
+    Website NVARCHAR(255) NULL,
+    StatusId UNIQUEIDENTIFIER NOT NULL,
+    LogoURL NVARCHAR(255) NULL,
+    CreatedAt DATETIME DEFAULT GETDATE() NOT NULL,
+    UpdatedAt DATETIME DEFAULT GETDATE() NOT NULL,
+
+    CONSTRAINT FK_Companies_Address FOREIGN KEY (AddressId) REFERENCES Addresses(AddressId),
+    CONSTRAINT FK_Companies_Status FOREIGN KEY (StatusId) REFERENCES Statuses(StatusId)
+);
+
+CREATE TABLE Roles (
+    RoleId UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
+    RoleName NVARCHAR(127) NOT NULL UNIQUE,
+    Description NVARCHAR(255) NULL,
+    CreatedAt DATETIME DEFAULT GETDATE() NOT NULL,
+    UpdatedAt DATETIME DEFAULT GETDATE() NOT NULL
+);
+
+CREATE TABLE Users (
+    UserId UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
+    CompanyId UNIQUEIDENTIFIER NOT NULL,
+    FirstName NVARCHAR(127) NOT NULL,
+    LastName NVARCHAR(127) NOT NULL,
+    Email NVARCHAR(255) UNIQUE NOT NULL,
+    PhoneNumber NVARCHAR(20) UNIQUE NULL,
+    PasswordHash NVARCHAR(255) NOT NULL,
+    RoleId UNIQUEIDENTIFIER NOT NULL,
+    StatusId UNIQUEIDENTIFIER NOT NULL,
+    ProfileImageUrl NVARCHAR(255) NULL,
+    CreatedAt DATETIME DEFAULT GETDATE() NOT NULL,
+    UpdatedAt DATETIME DEFAULT GETDATE() NOT NULL,
+    LastLoginAt DATETIME NULL,
+
+    CONSTRAINT FK_Users_Company FOREIGN KEY (CompanyId) REFERENCES Companies(CompanyId),
+    CONSTRAINT FK_Users_Role FOREIGN KEY (RoleId) REFERENCES Roles(RoleId),
+    CONSTRAINT FK_Users_Status FOREIGN KEY (StatusId) REFERENCES Statuses(StatusId)
+);
+
+CREATE TABLE Permissions (
+    PermissionId UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
+    PermissionName NVARCHAR(127) NOT NULL UNIQUE,
+    Description NVARCHAR(255) NULL,
+    CreatedAt DATETIME DEFAULT GETDATE() NOT NULL,
+    UpdatedAt DATETIME DEFAULT GETDATE() NOT NULL
+);
+
+CREATE TABLE RolePermissions (
+    RoleId UNIQUEIDENTIFIER NOT NULL,
+    PermissionId UNIQUEIDENTIFIER NOT NULL,
+
+    PRIMARY KEY (RoleId, PermissionId),
+    CONSTRAINT FK_RolePermissions_Role FOREIGN KEY (RoleId) REFERENCES Roles(RoleId),
+    CONSTRAINT FK_RolePermissions_Permission FOREIGN KEY (PermissionId) REFERENCES Permissions(PermissionId)
+);
+
+CREATE TABLE Orders (
+    OrderId UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
+    UserId UNIQUEIDENTIFIER NOT NULL,
+    StatusId UNIQUEIDENTIFIER NOT NULL,
+    ShippingAddressId UNIQUEIDENTIFIER NOT NULL,
+    InvoiceAddressId UNIQUEIDENTIFIER NOT NULL,
+    CreatedAt DATETIME DEFAULT GETDATE() NOT NULL,
+    UpdatedAt DATETIME DEFAULT GETDATE() NOT NULL,
+
+    CONSTRAINT FK_Orders_User FOREIGN KEY (UserId) REFERENCES Users(UserId),
+    CONSTRAINT FK_Orders_Status FOREIGN KEY (StatusId) REFERENCES Statuses(StatusId)
+);
+
+CREATE TABLE Invoices (
+    InvoiceId UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
+    OrderId UNIQUEIDENTIFIER NOT NULL,
+    CompanyId UNIQUEIDENTIFIER NOT NULL,
+    InvoiceAddressId UNIQUEIDENTIFIER NOT NULL,
+    TotalAmount FLOAT NOT NULL,
+    TaxAmount FLOAT NOT NULL,
+    Currency NVARCHAR(10) NOT NULL,
+    StatusId UNIQUEIDENTIFIER NOT NULL,
+    CreatedAt DATETIME DEFAULT GETDATE() NOT NULL,
+    UpdatedAt DATETIME DEFAULT GETDATE() NOT NULL,
+
+    CONSTRAINT FK_Invoices_Order FOREIGN KEY (OrderId) REFERENCES Orders(OrderId),
+    CONSTRAINT FK_Invoices_Company FOREIGN KEY (CompanyId) REFERENCES Companies(CompanyId)
+);
+
+CREATE TABLE Payments (
+    PaymentId UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
+    InvoiceId UNIQUEIDENTIFIER NOT NULL,
+    PaymentDate DATETIME NOT NULL,
+    Amount FLOAT NOT NULL,
+    Currency NVARCHAR(10) NOT NULL,
+    TransactionReference NVARCHAR(100) NOT NULL,
+    CreatedAt DATETIME DEFAULT GETDATE() NOT NULL,
+    UpdatedAt DATETIME DEFAULT GETDATE() NOT NULL,
+
+    CONSTRAINT FK_Payments_Invoice FOREIGN KEY (InvoiceId) REFERENCES Invoices(InvoiceId)
+);
+
+CREATE TABLE Categories (
+    CategoryId UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
+    CategoryName NVARCHAR(50) NOT NULL UNIQUE,
+    CategoryDescription NVARCHAR(255) NULL,
+    CreatedAt DATETIME DEFAULT GETDATE() NOT NULL,
+    UpdatedAt DATETIME DEFAULT GETDATE() NOT NULL
+);
+
+CREATE TABLE Products (
+    ProductId UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
+    ProductName NVARCHAR(127) NOT NULL,
+    ProductCode NVARCHAR(50) UNIQUE NOT NULL,
+    Description NVARCHAR(255) NULL,
+    CategoryId UNIQUEIDENTIFIER NOT NULL,
+    Price FLOAT NOT NULL CHECK (Price >= 0),
+    Currency NVARCHAR(10) NOT NULL,
+    StatusId UNIQUEIDENTIFIER NOT NULL,
+    MinOrderQuantity INT NOT NULL CHECK (MinOrderQuantity > 0),
+    CreatedAt DATETIME DEFAULT GETDATE() NOT NULL,
+    UpdatedAt DATETIME DEFAULT GETDATE() NOT NULL,
+
+    CONSTRAINT FK_Products_Category FOREIGN KEY (CategoryId) REFERENCES Categories(CategoryId),
+    CONSTRAINT FK_Products_Status FOREIGN KEY (StatusId) REFERENCES Statuses(StatusId)
+);
+
+CREATE TABLE OrderItems (
+    OrderId UNIQUEIDENTIFIER NOT NULL,
+    ProductId UNIQUEIDENTIFIER NOT NULL,
+    Quantity INT NOT NULL CHECK (Quantity > 0),
+    Price FLOAT NOT NULL,
+    Currency NVARCHAR(10) NOT NULL,
+
+    PRIMARY KEY (OrderId, ProductId),
+    CONSTRAINT FK_OrderItems_Order FOREIGN KEY (OrderId) REFERENCES Orders(OrderId),
+    CONSTRAINT FK_OrderItems_Product FOREIGN KEY (ProductId) REFERENCES Products(ProductId)
+);
+
+CREATE TABLE ProductStocks (
+    ProductId UNIQUEIDENTIFIER PRIMARY KEY,
+    StockQuantity INT NOT NULL CHECK (StockQuantity >= 0),
+    UpdatedAt DATETIME DEFAULT GETDATE() NOT NULL,
+
+    CONSTRAINT FK_ProductStocks_Product FOREIGN KEY (ProductId) REFERENCES Products(ProductId)
+);
+
 CREATE TABLE DiscountTypes (
     DiscountTypeID      UNIQUEIDENTIFIER NOT NULL DEFAULT NEWID(),
     DiscountTypeName    VARCHAR(50)      NOT NULL,
     CONSTRAINT PK_DiscountTypes PRIMARY KEY (DiscountTypeID),
     CONSTRAINT UQ_DiscountTypes_DiscountTypeName UNIQUE (DiscountTypeName)
 );
-GO
 
--- =========================================
--- 5) Statuses
--- =========================================
-CREATE TABLE Statuses (
-    StatusID    UNIQUEIDENTIFIER NOT NULL DEFAULT NEWID(),
-    StatusName  VARCHAR(50)      NOT NULL,
-    CONSTRAINT PK_Statuses PRIMARY KEY (StatusID),
-    CONSTRAINT UQ_Statuses_StatusName UNIQUE (StatusName)
-);
-GO
-
--- =========================================
--- 6) Roles
--- =========================================
-CREATE TABLE Roles (
-    RoleID      UNIQUEIDENTIFIER NOT NULL DEFAULT NEWID(),
-    RoleName    VARCHAR(50)      NOT NULL,
-    CONSTRAINT PK_Roles PRIMARY KEY (RoleID),
-    CONSTRAINT UQ_Roles_RoleName UNIQUE (RoleName)
-);
-GO
-
--- =========================================
--- 7) Permissions
--- =========================================
-CREATE TABLE Permissions (
-    PermissionID        UNIQUEIDENTIFIER NOT NULL DEFAULT NEWID(),
-    PermissionName      VARCHAR(100)     NOT NULL,
-    CONSTRAINT PK_Permissions PRIMARY KEY (PermissionID),
-    CONSTRAINT UQ_Permissions_PermissionName UNIQUE (PermissionName)
-);
-GO
-
--- =========================================
--- 8) RolePermissions (bridge between Roles & Permissions)
---    Composite PK (no separate ID needed)
--- =========================================
-CREATE TABLE RolePermissions (
-    RoleID          UNIQUEIDENTIFIER NOT NULL,
-    PermissionID    UNIQUEIDENTIFIER NOT NULL,
-    CONSTRAINT PK_RolePermissions PRIMARY KEY (RoleID, PermissionID),
-    CONSTRAINT FK_RolePermissions_RoleID FOREIGN KEY (RoleID) REFERENCES Roles(RoleID),
-    CONSTRAINT FK_RolePermissions_PermissionID FOREIGN KEY (PermissionID) REFERENCES Permissions(PermissionID)
-);
-GO
-
--- =========================================
--- 9) Companies
--- =========================================
-CREATE TABLE Companies (
-    CompanyID       UNIQUEIDENTIFIER NOT NULL DEFAULT NEWID(),
-    CompanyName     VARCHAR(100)     NOT NULL,
-    CONSTRAINT PK_Companies PRIMARY KEY (CompanyID),
-    CONSTRAINT UQ_Companies_CompanyName UNIQUE (CompanyName)
-);
-GO
-
--- =========================================
--- 10) Users
--- =========================================
-CREATE TABLE Users (
-    UserID          UNIQUEIDENTIFIER NOT NULL DEFAULT NEWID(),
-    CompanyID       UNIQUEIDENTIFIER NULL,
-    FirstName       VARCHAR(50)      NOT NULL,
-    LastName        VARCHAR(50)      NOT NULL,
-    Email           VARCHAR(100)     NOT NULL,
-    PasswordHash    VARCHAR(200)     NOT NULL,
-    CreatedAt       DATETIME         NOT NULL DEFAULT GETDATE(),
-    CONSTRAINT PK_Users PRIMARY KEY (UserID),
-    CONSTRAINT FK_Users_Companies FOREIGN KEY (CompanyID) REFERENCES Companies(CompanyID),
-    CONSTRAINT UQ_Users_Email UNIQUE (Email)
-);
-GO
-
--- =========================================
--- 11) Addresses
--- =========================================
-CREATE TABLE Addresses (
-    AddressID       UNIQUEIDENTIFIER NOT NULL DEFAULT NEWID(),
-    AddressTypeID   UNIQUEIDENTIFIER NOT NULL,
-    CountryID       UNIQUEIDENTIFIER NOT NULL,
-    UserID          UNIQUEIDENTIFIER NULL,
-    Street          VARCHAR(100)     NOT NULL,
-    City            VARCHAR(50)      NOT NULL,
-    State           VARCHAR(50)      NOT NULL,
-    PostalCode      VARCHAR(20)      NOT NULL,
-    CONSTRAINT PK_Addresses PRIMARY KEY (AddressID),
-    CONSTRAINT FK_Addresses_AddressTypeID FOREIGN KEY (AddressTypeID) REFERENCES AddressTypes(AddressTypeID),
-    CONSTRAINT FK_Addresses_CountryID FOREIGN KEY (CountryID) REFERENCES Countries(CountryID),
-    CONSTRAINT FK_Addresses_UserID FOREIGN KEY (UserID) REFERENCES Users(UserID)
-);
-GO
-
--- =========================================
--- 12) Discounts
--- =========================================
 CREATE TABLE Discounts (
     DiscountID      UNIQUEIDENTIFIER NOT NULL DEFAULT NEWID(),
     DiscountTypeID  UNIQUEIDENTIFIER NOT NULL,
@@ -147,112 +207,14 @@ CREATE TABLE Discounts (
     CONSTRAINT PK_Discounts PRIMARY KEY (DiscountID),
     CONSTRAINT FK_Discounts_DiscountTypeID FOREIGN KEY (DiscountTypeID) REFERENCES DiscountTypes(DiscountTypeID)
 );
-GO
 
--- =========================================
--- 13) Categories
--- =========================================
-CREATE TABLE Categories (
-    CategoryID      UNIQUEIDENTIFIER NOT NULL DEFAULT NEWID(),
-    CategoryName    VARCHAR(100)     NOT NULL,
-    CONSTRAINT PK_Categories PRIMARY KEY (CategoryID),
-    CONSTRAINT UQ_Categories_CategoryName UNIQUE (CategoryName)
+CREATE TABLE LogTypes (
+    LogTypeID       UNIQUEIDENTIFIER NOT NULL DEFAULT NEWID(),
+    LogTypeName     VARCHAR(50)      NOT NULL,
+    CONSTRAINT PK_LogTypes PRIMARY KEY (LogTypeID),
+    CONSTRAINT UQ_LogTypes_LogTypeName UNIQUE (LogTypeName)
 );
-GO
 
--- =========================================
--- 14) Products
--- =========================================
-CREATE TABLE Products (
-    ProductID           UNIQUEIDENTIFIER NOT NULL DEFAULT NEWID(),
-    CategoryID          UNIQUEIDENTIFIER NOT NULL,
-    ProductName         VARCHAR(100)     NOT NULL,
-    ProductDescription  VARCHAR(MAX)     NULL,
-    Price               DECIMAL(18,2)    NOT NULL,
-    CONSTRAINT PK_Products PRIMARY KEY (ProductID),
-    CONSTRAINT FK_Products_CategoryID FOREIGN KEY (CategoryID) REFERENCES Categories(CategoryID),
-    CONSTRAINT UQ_Products_ProductName UNIQUE (ProductName)
-);
-GO
-
--- =========================================
--- 15) ProductStocks
--- =========================================
-CREATE TABLE ProductStocks (
-    ProductStockID  UNIQUEIDENTIFIER NOT NULL DEFAULT NEWID(),
-    ProductID       UNIQUEIDENTIFIER NOT NULL,
-    Quantity        INT              NOT NULL,
-    LastUpdated     DATETIME         NOT NULL DEFAULT GETDATE(),
-    CONSTRAINT PK_ProductStocks PRIMARY KEY (ProductStockID),
-    CONSTRAINT FK_ProductStocks_ProductID FOREIGN KEY (ProductID) REFERENCES Products(ProductID)
-);
-GO
-
--- =========================================
--- 16) Orders
--- =========================================
-CREATE TABLE Orders (
-    OrderID         UNIQUEIDENTIFIER NOT NULL DEFAULT NEWID(),
-    UserID          UNIQUEIDENTIFIER NOT NULL,
-    DiscountID      UNIQUEIDENTIFIER NULL,
-    StatusID        UNIQUEIDENTIFIER NOT NULL,
-    OrderDate       DATETIME         NOT NULL DEFAULT GETDATE(),
-    TotalAmount     DECIMAL(18,2)    NOT NULL,
-    CONSTRAINT PK_Orders PRIMARY KEY (OrderID),
-    CONSTRAINT FK_Orders_UserID FOREIGN KEY (UserID) REFERENCES Users(UserID),
-    CONSTRAINT FK_Orders_DiscountID FOREIGN KEY (DiscountID) REFERENCES Discounts(DiscountID),
-    CONSTRAINT FK_Orders_StatusID FOREIGN KEY (StatusID) REFERENCES Statuses(StatusID)
-);
-GO
-
--- =========================================
--- 17) OrderItems
--- =========================================
-CREATE TABLE OrderItems (
-    OrderItemID UNIQUEIDENTIFIER NOT NULL DEFAULT NEWID(),
-    OrderID     UNIQUEIDENTIFIER NOT NULL,
-    ProductID   UNIQUEIDENTIFIER NOT NULL,
-    Quantity    INT              NOT NULL,
-    UnitPrice   DECIMAL(18,2)    NOT NULL,
-    CONSTRAINT PK_OrderItems PRIMARY KEY (OrderItemID),
-    CONSTRAINT FK_OrderItems_OrderID FOREIGN KEY (OrderID) REFERENCES Orders(OrderID),
-    CONSTRAINT FK_OrderItems_ProductID FOREIGN KEY (ProductID) REFERENCES Products(ProductID)
-);
-GO
-
--- =========================================
--- 18) Invoices
--- =========================================
-CREATE TABLE Invoices (
-    InvoiceID       UNIQUEIDENTIFIER NOT NULL DEFAULT NEWID(),
-    OrderID         UNIQUEIDENTIFIER NOT NULL,
-    InvoiceNumber   VARCHAR(50)      NOT NULL,
-    InvoiceDate     DATETIME         NOT NULL,
-    DueDate         DATETIME         NULL,
-    TotalAmount     DECIMAL(18,2)    NOT NULL,
-    CONSTRAINT PK_Invoices PRIMARY KEY (InvoiceID),
-    CONSTRAINT UQ_Invoices_InvoiceNumber UNIQUE (InvoiceNumber),
-    CONSTRAINT FK_Invoices_OrderID FOREIGN KEY (OrderID) REFERENCES Orders(OrderID)
-);
-GO
-
--- =========================================
--- 19) Payments
--- =========================================
-CREATE TABLE Payments (
-    PaymentID       UNIQUEIDENTIFIER NOT NULL DEFAULT NEWID(),
-    InvoiceID       UNIQUEIDENTIFIER NOT NULL,
-    PaymentMethod   VARCHAR(50)      NOT NULL,
-    PaymentDate     DATETIME         NOT NULL,
-    PaymentAmount   DECIMAL(18,2)    NOT NULL,
-    CONSTRAINT PK_Payments PRIMARY KEY (PaymentID),
-    CONSTRAINT FK_Payments_InvoiceID FOREIGN KEY (InvoiceID) REFERENCES Invoices(InvoiceID)
-);
-GO
-
--- =========================================
--- 20) Logs
--- =========================================
 CREATE TABLE Logs (
     LogID       UNIQUEIDENTIFIER NOT NULL DEFAULT NEWID(),
     LogTypeID   UNIQUEIDENTIFIER NOT NULL,
@@ -263,11 +225,7 @@ CREATE TABLE Logs (
     CONSTRAINT FK_Logs_LogTypeID FOREIGN KEY (LogTypeID) REFERENCES LogTypes(LogTypeID),
     CONSTRAINT FK_Logs_UserID FOREIGN KEY (UserID) REFERENCES Users(UserID)
 );
-GO
 
--- =========================================
--- 21) ProductImage
--- =========================================
 CREATE TABLE ProductImage (
     ProductImageID  UNIQUEIDENTIFIER NOT NULL DEFAULT NEWID(),
     ProductID       UNIQUEIDENTIFIER NOT NULL,
@@ -276,4 +234,3 @@ CREATE TABLE ProductImage (
     CONSTRAINT PK_ProductImage PRIMARY KEY (ProductImageID),
     CONSTRAINT FK_ProductImage_ProductID FOREIGN KEY (ProductID) REFERENCES Products(ProductID)
 );
-GO
